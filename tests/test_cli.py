@@ -4,7 +4,7 @@ from io import StringIO
 import unittest
 from unittest.mock import patch
 
-from issue_writer_agent.cli import _prompt, run_interview
+from issue_writer_agent.cli import _ask_choice, _prompt, run_interview
 from issue_writer_agent.config import AppConfig
 
 
@@ -52,6 +52,34 @@ class CliTests(unittest.TestCase):
         self.assertIn("Output format: user_story", final_prompt)
         self.assertIn("Implementation audience: human_team", final_prompt)
         self.assertIn("Product managers", final_prompt)
+
+    def test_choice_prompt_echoes_default_selection(self) -> None:
+        with (
+            patch("builtins.input", return_value=""),
+            patch("sys.stdout", new_callable=StringIO) as stdout,
+        ):
+            choice = _ask_choice(
+                "Output format",
+                ("user_story", "task", "github_issue"),
+                "user_story",
+            )
+
+        self.assertEqual(choice, "user_story")
+        self.assertIn("Selected: user_story\n", stdout.getvalue())
+
+    def test_choice_prompt_echoes_normalized_selection(self) -> None:
+        with (
+            patch("builtins.input", return_value="human"),
+            patch("sys.stdout", new_callable=StringIO) as stdout,
+        ):
+            choice = _ask_choice(
+                "Who will implement it",
+                ("ai_agent", "human_team"),
+                "ai_agent",
+            )
+
+        self.assertEqual(choice, "human_team")
+        self.assertIn("Selected: human_team\n", stdout.getvalue())
 
 
 if __name__ == "__main__":

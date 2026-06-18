@@ -120,9 +120,11 @@ def _ask_choice(label: str, choices: tuple[str, ...], default: str) -> str:
             response_label="Selection",
         ).strip()
         if not raw:
+            print(f"Selected: {default}")
             return default
         normalized = normalize_choice(raw, choices)
         if normalized is not None:
+            print(f"Selected: {normalized}")
             return normalized
         print(f"Please choose one of: {choice_list}")
 
