@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "issue-writer-agent"
+version = "0.1.0"
+description = "Terminal agent that turns rough software ideas into implementation-ready issues."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Marco" }]
+
+[project.scripts]
+issue-writer = "issue_writer_agent.cli:main"
+issue_writer_agent = "issue_writer_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["issue_writer_agent*"]
