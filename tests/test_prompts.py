@@ -26,6 +26,7 @@ class PromptTests(unittest.TestCase):
             normalize_choice("human", ("ai_agent", "human_team")),
             "human_team",
         )
+        self.assertEqual(normalize_choice("md", ("markdown", "html")), "markdown")
         self.assertIsNone(normalize_choice("spreadsheet", ("user_story", "task")))
 
     def test_spec_prompt_preserves_unknowns_and_audience(self) -> None:
@@ -34,13 +35,30 @@ class PromptTests(unittest.TestCase):
             transcript=[("What auth provider?", "I don't know yet")],
             output_format="github_issue",
             implementation_entity="ai_agent",
+            render_format="markdown",
             gherkin_acceptance_criteria=True,
         )
 
         prompt = messages[1]["content"]
         self.assertIn("I don't know yet", prompt)
         self.assertIn("ai_agent", prompt)
+        self.assertIn("Render format: markdown", prompt)
         self.assertIn("Given/When/Then", prompt)
+
+    def test_spec_prompt_can_request_html_rendering(self) -> None:
+        messages = build_spec_messages(
+            idea="Export billing report",
+            transcript=[],
+            output_format="task",
+            implementation_entity="human_team",
+            render_format="html",
+            gherkin_acceptance_criteria=False,
+        )
+
+        prompt = messages[1]["content"]
+        self.assertIn("Render format: html", prompt)
+        self.assertIn("<!doctype html>", prompt)
+        self.assertIn("Do not include Markdown", prompt)
 
 
 if __name__ == "__main__":

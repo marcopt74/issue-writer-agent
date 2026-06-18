@@ -1,10 +1,18 @@
 from __future__ import annotations
 
 from io import StringIO
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
-from issue_writer_agent.cli import _ask_choice, _prompt, run_interview
+from issue_writer_agent.cli import (
+    GeneratedSpecification,
+    _ask_choice,
+    _prompt,
+    _write_specification_file,
+    run_interview,
+)
 from issue_writer_agent.config import AppConfig
 
 
@@ -38,20 +46,37 @@ class CliTests(unittest.TestCase):
         config = AppConfig(
             default_output_format="user_story",
             default_implementation_entity="human_team",
+            default_render_format="html",
         )
         client = FakeClient()
 
         with (
-            patch("builtins.input", side_effect=["Product managers", "done", "", ""]),
+            patch("builtins.input", side_effect=["Product managers", "done", "", "", ""]),
             patch("sys.stdout"),
         ):
             spec = run_interview("Improve roadmap planning", config, client)  # type: ignore[arg-type]
 
-        self.assertEqual(spec, "# Draft Issue")
+        self.assertEqual(spec.content, "# Draft Issue")
+        self.assertEqual(spec.render_format, "html")
         final_prompt = client.calls[-1][-1]["content"]
         self.assertIn("Output format: user_story", final_prompt)
         self.assertIn("Implementation audience: human_team", final_prompt)
+        self.assertIn("Render format: html", final_prompt)
         self.assertIn("Product managers", final_prompt)
+
+    def test_write_specification_file_uses_render_extension_and_tmp_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("issue_writer_agent.cli.tempfile.gettempdir", return_value=tmp):
+                output_path = _write_specification_file(
+                    GeneratedSpecification(
+                        content="\n<h1>Draft Issue</h1>\n",
+                        render_format="html",
+                    )
+                )
+
+            self.assertEqual(output_path.parent, Path(tmp).resolve())
+            self.assertEqual(output_path.suffix, ".html")
+            self.assertEqual(output_path.read_text(encoding="utf-8"), "<h1>Draft Issue</h1>\n")
 
     def test_choice_prompt_echoes_default_selection(self) -> None:
         with (

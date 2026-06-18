@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 import sys
+import tempfile
 
 from .config import (
     IMPLEMENTATION_ENTITIES,
     OUTPUT_FORMATS,
+    RENDER_FORMATS,
     AppConfig,
     DEFAULT_CONFIG_PATHS,
     load_config,
@@ -19,6 +22,12 @@ from .prompts import (
     is_stop_request,
     normalize_choice,
 )
+
+
+@dataclass(frozen=True)
+class GeneratedSpecification:
+    content: str
+    render_format: str
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -62,14 +71,18 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         specification = run_interview(idea, config, client)
+        output_path = _write_specification_file(specification)
     except LlmError as exc:
         print(f"\nLLM error: {exc}", file=sys.stderr)
+        return 1
+    except OSError as exc:
+        print(f"\nCould not write specification file: {exc}", file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         print("\nInterrupted.", file=sys.stderr)
         return 130
 
-    print("\n" + specification.strip() + "\n")
+    print(f"\nSpecification written to: {output_path}\n")
     return 0
 
 
@@ -77,7 +90,7 @@ def run_interview(
     idea: str,
     config: AppConfig,
     client: OpenAICompatibleClient,
-) -> str:
+) -> GeneratedSpecification:
     transcript: list[tuple[str, str]] = []
     print("\nAnswer the questions one at a time. Type 'done' when you want the specification.\n")
 
@@ -100,16 +113,37 @@ def run_interview(
         IMPLEMENTATION_ENTITIES,
         config.default_implementation_entity,
     )
+    render_format = _ask_choice(
+        "Render format",
+        RENDER_FORMATS,
+        config.default_render_format,
+    )
 
-    return client.chat(
+    content = client.chat(
         build_spec_messages(
             idea=idea,
             transcript=transcript,
             output_format=output_format,
             implementation_entity=implementation_entity,
+            render_format=render_format,
             gherkin_acceptance_criteria=config.gherkin_acceptance_criteria,
         )
     )
+    return GeneratedSpecification(content=content, render_format=render_format)
+
+
+def _write_specification_file(specification: GeneratedSpecification) -> Path:
+    suffix = ".html" if specification.render_format == "html" else ".md"
+    with tempfile.NamedTemporaryFile(
+        "w",
+        delete=False,
+        dir=tempfile.gettempdir(),
+        encoding="utf-8",
+        prefix="issue-writer-",
+        suffix=suffix,
+    ) as output_file:
+        output_file.write(specification.content.strip() + "\n")
+        return Path(output_file.name).resolve()
 
 
 def _ask_choice(label: str, choices: tuple[str, ...], default: str) -> str:

@@ -9,6 +9,7 @@ from typing import Any
 
 OUTPUT_FORMATS = ("user_story", "task", "github_issue")
 IMPLEMENTATION_ENTITIES = ("ai_agent", "human_team")
+RENDER_FORMATS = ("markdown", "html")
 
 
 DEFAULT_CONFIG_PATHS = (
@@ -24,6 +25,7 @@ class AppConfig:
     model_name: str = "llama3.1"
     default_output_format: str = "github_issue"
     default_implementation_entity: str = "ai_agent"
+    default_render_format: str = "markdown"
     gherkin_acceptance_criteria: bool = False
 
 
@@ -45,6 +47,7 @@ def load_config(path: Path | None = None) -> AppConfig:
         "default_implementation_entity": os.getenv(
             "ISSUE_WRITER_DEFAULT_IMPLEMENTATION_ENTITY"
         ),
+        "default_render_format": os.getenv("ISSUE_WRITER_DEFAULT_RENDER_FORMAT"),
         "gherkin_acceptance_criteria": os.getenv(
             "ISSUE_WRITER_GHERKIN_ACCEPTANCE_CRITERIA"
         ),
@@ -65,6 +68,9 @@ def load_config(path: Path | None = None) -> AppConfig:
                 "default_implementation_entity",
                 AppConfig.default_implementation_entity,
             )
+        ),
+        default_render_format=str(
+            data.get("default_render_format", AppConfig.default_render_format)
         ),
         gherkin_acceptance_criteria=_to_bool(
             data.get(
@@ -89,6 +95,7 @@ def write_default_config(path: Path) -> None:
                 'model_name = "llama3.1"',
                 'default_output_format = "github_issue"',
                 'default_implementation_entity = "ai_agent"',
+                'default_render_format = "markdown"',
                 "gherkin_acceptance_criteria = false",
                 "",
             ]
@@ -118,6 +125,10 @@ def _validate_config(config: AppConfig) -> None:
             "default_implementation_entity must be one of: "
             + ", ".join(IMPLEMENTATION_ENTITIES)
         )
+    if config.default_render_format not in RENDER_FORMATS:
+        raise ValueError(
+            "default_render_format must be one of: " + ", ".join(RENDER_FORMATS)
+        )
 
 
 def _to_bool(value: Any) -> bool:
@@ -130,4 +141,3 @@ def _to_bool(value: Any) -> bool:
         if normalized in {"0", "false", "no", "n", "off", ""}:
             return False
     return bool(value)
-

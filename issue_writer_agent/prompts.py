@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .config import IMPLEMENTATION_ENTITIES, OUTPUT_FORMATS
+from .config import IMPLEMENTATION_ENTITIES, OUTPUT_FORMATS, RENDER_FORMATS
 
 
 STOP_WORDS = {
@@ -52,6 +52,8 @@ def normalize_choice(value: str, choices: tuple[str, ...]) -> str | None:
         "ai": "ai_agent",
         "agent": "ai_agent",
         "aiagent": "ai_agent",
+        "md": "markdown",
+        "markup": "markdown",
     }
     normalized = aliases.get(normalized, normalized)
     if normalized in choices:
@@ -89,12 +91,15 @@ def build_spec_messages(
     transcript: list[tuple[str, str]],
     output_format: str,
     implementation_entity: str,
+    render_format: str,
     gherkin_acceptance_criteria: bool,
 ) -> list[dict[str, str]]:
     if output_format not in OUTPUT_FORMATS:
         raise ValueError(f"Unsupported output format: {output_format}")
     if implementation_entity not in IMPLEMENTATION_ENTITIES:
         raise ValueError(f"Unsupported implementation entity: {implementation_entity}")
+    if render_format not in RENDER_FORMATS:
+        raise ValueError(f"Unsupported render format: {render_format}")
 
     format_instructions = {
         "user_story": (
@@ -106,7 +111,7 @@ def build_spec_messages(
             "Requirements, Acceptance Criteria, Unknowns and Assumptions, Implementation Notes."
         ),
         "github_issue": (
-            "Write a GitHub issue in Markdown with sections: Summary, Problem, Proposed Scope, "
+            "Write a GitHub issue with sections: Summary, Problem, Proposed Scope, "
             "Acceptance Criteria, Unknowns and Assumptions, Implementation Notes, Test Notes."
         ),
     }[output_format]
@@ -128,6 +133,17 @@ def build_spec_messages(
         if gherkin_acceptance_criteria
         else "Write acceptance criteria as clear checklist bullets."
     )
+    render_instruction = {
+        "markdown": (
+            "Render the final specification as Markdown only. Use Markdown headings, bullets, "
+            "and task-list checkboxes where useful. Do not wrap the output in a code fence."
+        ),
+        "html": (
+            "Render the final specification as semantic HTML only. Return a complete HTML "
+            "document with <!doctype html>, html, head, title, body, headings, paragraphs, "
+            "and lists. Do not include Markdown or wrap the HTML in a code fence."
+        ),
+    }[render_format]
 
     return [
         {
@@ -146,9 +162,11 @@ def build_spec_messages(
                 f"Interview transcript:\n{_format_transcript(transcript)}\n\n"
                 f"Output format: {output_format}\n"
                 f"Implementation audience: {implementation_entity}\n"
+                f"Render format: {render_format}\n"
                 f"Format instructions: {format_instructions}\n"
                 f"Audience instructions: {audience_instruction}\n"
                 f"Acceptance criteria instructions: {acceptance_instruction}\n\n"
+                f"Render instructions: {render_instruction}\n\n"
                 "Draft the final specification now."
             ),
         },

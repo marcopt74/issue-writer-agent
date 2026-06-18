@@ -21,6 +21,7 @@ class ConfigTests(unittest.TestCase):
                         'model_name = "model-a"',
                         'default_output_format = "user_story"',
                         'default_implementation_entity = "human_team"',
+                        'default_render_format = "html"',
                         "gherkin_acceptance_criteria = true",
                     ]
                 ),
@@ -34,6 +35,7 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.model_name, "model-a")
         self.assertEqual(config.default_output_format, "user_story")
         self.assertEqual(config.default_implementation_entity, "human_team")
+        self.assertEqual(config.default_render_format, "html")
         self.assertTrue(config.gherkin_acceptance_criteria)
 
     def test_environment_overrides_config(self) -> None:
@@ -53,6 +55,14 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "default_output_format"):
                 load_config(path)
 
+    def test_rejects_invalid_render_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.toml"
+            path.write_text('default_render_format = "pdf"\n', encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "default_render_format"):
+                load_config(path)
+
     def test_write_default_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "config.toml"
@@ -61,8 +71,8 @@ class ConfigTests(unittest.TestCase):
             config = load_config(path)
 
         self.assertEqual(config.default_output_format, "github_issue")
+        self.assertEqual(config.default_render_format, "markdown")
 
 
 if __name__ == "__main__":
     unittest.main()
-
