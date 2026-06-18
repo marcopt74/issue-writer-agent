@@ -27,6 +27,7 @@ class AppConfig:
     default_output_format: str = "github_issue"
     default_implementation_entity: str = "ai_agent"
     default_render_format: str = "markdown"
+    output_folder: str = ""
     gherkin_acceptance_criteria: bool = False
 
 
@@ -45,6 +46,7 @@ def load_config(path: Path | None = None) -> AppConfig:
             "ISSUE_WRITER_DEFAULT_IMPLEMENTATION_ENTITY"
         ),
         "default_render_format": os.getenv("ISSUE_WRITER_DEFAULT_RENDER_FORMAT"),
+        "output_folder": os.getenv("ISSUE_WRITER_OUTPUT_FOLDER"),
         "gherkin_acceptance_criteria": os.getenv(
             "ISSUE_WRITER_GHERKIN_ACCEPTANCE_CRITERIA"
         ),
@@ -85,6 +87,7 @@ def _config_from_data(data: dict[str, Any]) -> AppConfig:
         default_render_format=str(
             data.get("default_render_format", AppConfig.default_render_format)
         ),
+        output_folder=str(data.get("output_folder", AppConfig.output_folder)),
         gherkin_acceptance_criteria=_to_bool(
             data.get(
                 "gherkin_acceptance_criteria",
@@ -117,6 +120,7 @@ def write_config(path: Path, config: AppConfig) -> None:
                     f"{_toml_string(config.default_implementation_entity)}"
                 ),
                 f"default_render_format = {_toml_string(config.default_render_format)}",
+                f"output_folder = {_toml_string(config.output_folder)}",
                 f"gherkin_acceptance_criteria = {_toml_bool(config.gherkin_acceptance_criteria)}",
                 "",
             ]

@@ -87,7 +87,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         specification = run_interview(idea, config, client)
-        output_path = _write_specification_file(specification)
+        output_path = _write_specification_file(specification, config.output_folder)
     except LlmError as exc:
         print(f"\nLLM error: {exc}", file=sys.stderr)
         return 1
@@ -148,18 +148,29 @@ def run_interview(
     return GeneratedSpecification(content=content, render_format=render_format)
 
 
-def _write_specification_file(specification: GeneratedSpecification) -> Path:
+def _write_specification_file(
+    specification: GeneratedSpecification,
+    output_folder: str = "",
+) -> Path:
     suffix = ".html" if specification.render_format == "html" else ".md"
+    output_dir = _resolve_output_folder(output_folder)
+    output_dir.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(
         "w",
         delete=False,
-        dir=tempfile.gettempdir(),
+        dir=output_dir,
         encoding="utf-8",
         prefix="issue-writer-",
         suffix=suffix,
     ) as output_file:
         output_file.write(specification.content.strip() + "\n")
         return Path(output_file.name).resolve()
+
+
+def _resolve_output_folder(output_folder: str) -> Path:
+    if output_folder.strip():
+        return Path(output_folder).expanduser()
+    return Path(tempfile.gettempdir())
 
 
 def _configure_config(path: Path) -> int:
@@ -191,6 +202,7 @@ def _configure_config(path: Path) -> int:
         RENDER_FORMATS,
         existing.default_render_format,
     )
+    output_folder = _ask_output_folder(existing.output_folder)
     gherkin_acceptance_criteria = _ask_bool(
         "Use Gherkin acceptance criteria by default",
         existing.gherkin_acceptance_criteria,
@@ -203,6 +215,7 @@ def _configure_config(path: Path) -> int:
         default_output_format=default_output_format,
         default_implementation_entity=default_implementation_entity,
         default_render_format=default_render_format,
+        output_folder=output_folder,
         gherkin_acceptance_criteria=gherkin_acceptance_criteria,
     )
 
@@ -253,6 +266,29 @@ def _ask_required_text(label: str, default: str) -> str:
         if value:
             return value
         print("Value is required.")
+
+
+def _ask_output_folder(default: str) -> str:
+    if default:
+        label = (
+            f"Output folder [{default}; press Enter to keep it, "
+            "type 'clear' to use the operating system temp folder]"
+        )
+    else:
+        label = (
+            "Output folder [operating system temp folder; "
+            "press Enter to use it]"
+        )
+    raw = _prompt(label).strip()
+    if not raw:
+        selected = default or "operating system temp folder"
+        print(f"Selected: {selected}")
+        return default
+    if raw.lower() == "clear":
+        print("Selected: operating system temp folder")
+        return ""
+    print(f"Selected: {raw}")
+    return raw
 
 
 def _ask_choice(label: str, choices: tuple[str, ...], default: str) -> str:

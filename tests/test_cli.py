@@ -79,6 +79,19 @@ class CliTests(unittest.TestCase):
             self.assertEqual(output_path.suffix, ".html")
             self.assertEqual(output_path.read_text(encoding="utf-8"), "<h1>Draft Issue</h1>\n")
 
+    def test_write_specification_file_uses_configured_output_folder(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            output_folder = Path(tmp) / "configured" / "issues"
+
+            output_path = _write_specification_file(
+                GeneratedSpecification(content="# Draft Issue", render_format="markdown"),
+                str(output_folder),
+            )
+
+            self.assertEqual(output_path.parent, output_folder.resolve())
+            self.assertEqual(output_path.suffix, ".md")
+            self.assertEqual(output_path.read_text(encoding="utf-8"), "# Draft Issue\n")
+
     def test_choice_prompt_echoes_default_selection(self) -> None:
         with (
             patch("builtins.input", return_value=""),
@@ -121,6 +134,7 @@ class CliTests(unittest.TestCase):
                         "task",
                         "human",
                         "html",
+                        str(Path(tmp) / "issues"),
                         "yes",
                     ],
                 ),
@@ -137,6 +151,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(config.default_output_format, "task")
         self.assertEqual(config.default_implementation_entity, "human_team")
         self.assertEqual(config.default_render_format, "html")
+        self.assertEqual(config.output_folder, str(Path(tmp) / "issues"))
         self.assertTrue(config.gherkin_acceptance_criteria)
 
     def test_configure_config_updates_existing_config_with_defaults(self) -> None:
@@ -147,6 +162,7 @@ class CliTests(unittest.TestCase):
             default_output_format="github_issue",
             default_implementation_entity="ai_agent",
             default_render_format="markdown",
+            output_folder="/tmp/issue-writer-output",
             gherkin_acceptance_criteria=False,
         )
         with tempfile.TemporaryDirectory() as tmp:
@@ -155,7 +171,7 @@ class CliTests(unittest.TestCase):
 
             with (
                 patch("issue_writer_agent.cli._prompt_secret", return_value=""),
-                patch("builtins.input", side_effect=["", "", "", "", "", ""]),
+                patch("builtins.input", side_effect=["", "", "", "", "", "", ""]),
                 patch("sys.stdout", new_callable=StringIO) as stdout,
             ):
                 exit_code = _configure_config(path)

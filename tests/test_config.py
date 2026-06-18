@@ -22,6 +22,7 @@ class ConfigTests(unittest.TestCase):
                         'default_output_format = "user_story"',
                         'default_implementation_entity = "human_team"',
                         'default_render_format = "html"',
+                        'output_folder = "/tmp/issue-writer-output"',
                         "gherkin_acceptance_criteria = true",
                     ]
                 ),
@@ -36,16 +37,24 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.default_output_format, "user_story")
         self.assertEqual(config.default_implementation_entity, "human_team")
         self.assertEqual(config.default_render_format, "html")
+        self.assertEqual(config.output_folder, "/tmp/issue-writer-output")
         self.assertTrue(config.gherkin_acceptance_criteria)
 
     def test_environment_overrides_config(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "config.toml"
             path.write_text('model_name = "from-file"\n', encoding="utf-8")
-            with patch.dict(os.environ, {"ISSUE_WRITER_MODEL_NAME": "from-env"}):
+            with patch.dict(
+                os.environ,
+                {
+                    "ISSUE_WRITER_MODEL_NAME": "from-env",
+                    "ISSUE_WRITER_OUTPUT_FOLDER": "/tmp/from-env",
+                },
+            ):
                 config = load_config(path)
 
         self.assertEqual(config.model_name, "from-env")
+        self.assertEqual(config.output_folder, "/tmp/from-env")
 
     def test_load_config_file_ignores_environment_overrides(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -55,6 +64,7 @@ class ConfigTests(unittest.TestCase):
                 config = load_config_file(path)
 
         self.assertEqual(config.model_name, "from-file")
+        self.assertEqual(config.output_folder, "")
 
     def test_rejects_invalid_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -81,6 +91,7 @@ class ConfigTests(unittest.TestCase):
 
         self.assertEqual(config.default_output_format, "github_issue")
         self.assertEqual(config.default_render_format, "markdown")
+        self.assertEqual(config.output_folder, "")
 
 
 if __name__ == "__main__":
