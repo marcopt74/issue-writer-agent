@@ -21,9 +21,6 @@ from .prompts import (
 )
 
 
-PROMPT_SEPARATOR = "-" * 72
-
-
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Turn a rough software idea into an implementation-ready issue."
@@ -132,7 +129,6 @@ def _ask_choice(label: str, choices: tuple[str, ...], default: str) -> str:
 
 def _prompt(label: str, response_label: str = "Answer") -> str:
     print()
-    print(PROMPT_SEPARATOR)
     print(label)
     print()
     return input(f"{response_label}: ").strip()

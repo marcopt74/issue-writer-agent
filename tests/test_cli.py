@@ -4,7 +4,7 @@ from io import StringIO
 import unittest
 from unittest.mock import patch
 
-from issue_writer_agent.cli import PROMPT_SEPARATOR, _prompt, run_interview
+from issue_writer_agent.cli import _prompt, run_interview
 from issue_writer_agent.config import AppConfig
 
 
@@ -31,7 +31,7 @@ class CliTests(unittest.TestCase):
         input_mock.assert_called_once_with("Answer: ")
         self.assertEqual(
             stdout.getvalue(),
-            f"\n{PROMPT_SEPARATOR}\nWhat is the source format?\n\n",
+            "\nWhat is the source format?\n\n",
         )
 
     def test_run_interview_uses_defaults_when_user_presses_enter(self) -> None:
