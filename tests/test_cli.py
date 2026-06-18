@@ -3,13 +3,15 @@ from __future__ import annotations
 from io import StringIO
 from pathlib import Path
 import tempfile
+from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from issue_writer_agent.cli import (
     GeneratedSpecification,
     _ask_choice,
     _configure_config,
+    _flush_pending_terminal_input,
     _prompt,
     _write_specification_file,
     run_interview,
@@ -32,16 +34,45 @@ class CliTests(unittest.TestCase):
     def test_prompt_prints_question_and_answer_prompt_on_separate_lines(self) -> None:
         with (
             patch("builtins.input", return_value="JDBC access") as input_mock,
+            patch("issue_writer_agent.cli._flush_pending_terminal_input") as flush_mock,
             patch("sys.stdout", new_callable=StringIO) as stdout,
         ):
             answer = _prompt("What is the source format?")
 
         self.assertEqual(answer, "JDBC access")
+        flush_mock.assert_called_once_with()
         input_mock.assert_called_once_with("Answer: ")
         self.assertEqual(
             stdout.getvalue(),
             "\nWhat is the source format?\n\n",
         )
+
+    def test_flush_pending_terminal_input_flushes_tty_stdin(self) -> None:
+        fake_stdin = Mock()
+        fake_stdin.isatty.return_value = True
+        fake_stdin.fileno.return_value = 7
+        fake_termios = SimpleNamespace(TCIFLUSH=0, tcflush=Mock(), error=OSError)
+
+        with (
+            patch("issue_writer_agent.cli.sys.stdin", fake_stdin),
+            patch("issue_writer_agent.cli.termios", fake_termios),
+        ):
+            _flush_pending_terminal_input()
+
+        fake_termios.tcflush.assert_called_once_with(7, 0)
+
+    def test_flush_pending_terminal_input_skips_non_tty_stdin(self) -> None:
+        fake_stdin = Mock()
+        fake_stdin.isatty.return_value = False
+        fake_termios = SimpleNamespace(TCIFLUSH=0, tcflush=Mock(), error=OSError)
+
+        with (
+            patch("issue_writer_agent.cli.sys.stdin", fake_stdin),
+            patch("issue_writer_agent.cli.termios", fake_termios),
+        ):
+            _flush_pending_terminal_input()
+
+        fake_termios.tcflush.assert_not_called()
 
     def test_run_interview_uses_defaults_when_user_presses_enter(self) -> None:
         config = AppConfig(

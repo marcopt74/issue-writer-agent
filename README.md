@@ -772,6 +772,7 @@ Then it includes customer name, account ID, invoice number, invoice date, status
 - Start with a concrete verb, such as "add", "ingest", "migrate", "validate", "export", or "notify".
 - Give real constraints when you know them, such as platform, backend service, data source, user role, or deadline.
 - Say "I don't know" when a detail is genuinely unknown.
+- Paste one answer at a time. Before each prompt, the agent clears pending terminal input so stray pasted newlines are not reused as answers to later questions.
 - Stop the interview once the remaining questions are no longer improving the implementation brief.
 - Use `ai_agent` when the output will be pasted into an autonomous coding agent.
 - Use `human_team` when the output will be discussed, estimated, or refined by developers and product stakeholders.

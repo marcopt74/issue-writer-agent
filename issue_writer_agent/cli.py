@@ -7,6 +7,15 @@ from pathlib import Path
 import sys
 import tempfile
 
+try:
+    import termios
+except ImportError:  # pragma: no cover - termios is unavailable on some platforms.
+    termios = None  # type: ignore[assignment]
+
+_TERMINAL_FLUSH_ERRORS = (AttributeError, OSError, ValueError)
+if termios is not None:
+    _TERMINAL_FLUSH_ERRORS = _TERMINAL_FLUSH_ERRORS + (termios.error,)
+
 from .config import (
     IMPLEMENTATION_ENTITIES,
     OUTPUT_FORMATS,
@@ -332,6 +341,7 @@ def _prompt(label: str, response_label: str = "Answer") -> str:
     print()
     print(label)
     print()
+    _flush_pending_terminal_input()
     return input(f"{response_label}: ").strip()
 
 
@@ -339,7 +349,17 @@ def _prompt_secret(label: str) -> str:
     print()
     print(label)
     print()
+    _flush_pending_terminal_input()
     return getpass.getpass("Value: ").strip()
+
+
+def _flush_pending_terminal_input() -> None:
+    if termios is None or not sys.stdin.isatty():
+        return
+    try:
+        termios.tcflush(sys.stdin.fileno(), termios.TCIFLUSH)
+    except _TERMINAL_FLUSH_ERRORS:
+        return
 
 
 def _init_config(path: Path) -> int:
