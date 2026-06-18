@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import tomllib
@@ -33,11 +34,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     data: dict[str, Any] = {}
     config_path = path or _first_existing_config_path()
     if config_path and config_path.exists():
-        with config_path.open("rb") as config_file:
-            loaded = tomllib.load(config_file)
-        if not isinstance(loaded, dict):
-            raise ValueError(f"Config file {config_path} must contain TOML key/value data.")
-        data.update(loaded)
+        data.update(_load_toml_data(config_path))
 
     env_map = {
         "api_key": os.getenv("ISSUE_WRITER_API_KEY") or os.getenv("OPENAI_API_KEY"),
@@ -56,6 +53,22 @@ def load_config(path: Path | None = None) -> AppConfig:
         if value is not None:
             data[key] = value
 
+    return _config_from_data(data)
+
+
+def load_config_file(path: Path) -> AppConfig:
+    return _config_from_data(_load_toml_data(path))
+
+
+def _load_toml_data(path: Path) -> dict[str, Any]:
+    with path.open("rb") as config_file:
+        loaded = tomllib.load(config_file)
+    if not isinstance(loaded, dict):
+        raise ValueError(f"Config file {path} must contain TOML key/value data.")
+    return loaded
+
+
+def _config_from_data(data: dict[str, Any]) -> AppConfig:
     config = AppConfig(
         api_key=str(data.get("api_key", AppConfig.api_key)),
         model_url=str(data.get("model_url", AppConfig.model_url)).rstrip("/"),
@@ -86,17 +99,25 @@ def load_config(path: Path | None = None) -> AppConfig:
 def write_default_config(path: Path) -> None:
     if path.exists():
         raise FileExistsError(f"Config file already exists: {path}")
+    write_config(path, AppConfig())
+
+
+def write_config(path: Path, config: AppConfig) -> None:
+    _validate_config(config)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         "\n".join(
             [
-                'api_key = ""',
-                'model_url = "http://localhost:11434/v1"',
-                'model_name = "llama3.1"',
-                'default_output_format = "github_issue"',
-                'default_implementation_entity = "ai_agent"',
-                'default_render_format = "markdown"',
-                "gherkin_acceptance_criteria = false",
+                f"api_key = {_toml_string(config.api_key)}",
+                f"model_url = {_toml_string(config.model_url)}",
+                f"model_name = {_toml_string(config.model_name)}",
+                f"default_output_format = {_toml_string(config.default_output_format)}",
+                (
+                    "default_implementation_entity = "
+                    f"{_toml_string(config.default_implementation_entity)}"
+                ),
+                f"default_render_format = {_toml_string(config.default_render_format)}",
+                f"gherkin_acceptance_criteria = {_toml_bool(config.gherkin_acceptance_criteria)}",
                 "",
             ]
         ),
@@ -141,3 +162,11 @@ def _to_bool(value: Any) -> bool:
         if normalized in {"0", "false", "no", "n", "off", ""}:
             return False
     return bool(value)
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value)
+
+
+def _toml_bool(value: bool) -> str:
+    return "true" if value else "false"

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import getpass
 from pathlib import Path
 import sys
 import tempfile
@@ -12,7 +13,9 @@ from .config import (
     RENDER_FORMATS,
     AppConfig,
     DEFAULT_CONFIG_PATHS,
+    load_config_file,
     load_config,
+    write_config,
     write_default_config,
 )
 from .llm import LlmError, OpenAICompatibleClient
@@ -36,21 +39,34 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("idea", nargs="*", help="Rough software idea to explore.")
     parser.add_argument("--config", type=Path, help="Path to a TOML config file.")
-    parser.add_argument(
+    config_group = parser.add_mutually_exclusive_group()
+    config_group.add_argument(
         "--init-config",
         action="store_true",
         help="Create a starter config file and exit.",
+    )
+    config_group.add_argument(
+        "--configure",
+        action="store_true",
+        help="Run guided config setup/update and exit.",
     )
     parser.add_argument(
         "--config-path",
         type=Path,
         default=DEFAULT_CONFIG_PATHS[0],
-        help="Path used with --init-config. Defaults to ./issue_writer_config.toml.",
+        help=(
+            "Path used with --init-config or --configure. "
+            "Defaults to ./issue_writer_config.toml."
+        ),
     )
     args = parser.parse_args(argv)
 
+    config_write_path = args.config or args.config_path
+    if args.configure:
+        return _configure_config(config_write_path)
+
     if args.init_config:
-        return _init_config(args.config_path)
+        return _init_config(config_write_path)
 
     try:
         config = load_config(args.config)
@@ -146,6 +162,99 @@ def _write_specification_file(specification: GeneratedSpecification) -> Path:
         return Path(output_file.name).resolve()
 
 
+def _configure_config(path: Path) -> int:
+    existing = _load_config_for_onboarding(path)
+    action = "Updating" if path.exists() else "Creating"
+
+    print("\nIssue Writer Agent configuration")
+    print(f"{action} config file: {path}")
+    print("Press Enter to keep the value shown in brackets.")
+
+    api_key = _ask_api_key(existing.api_key)
+    model_url = _ask_required_text(
+        "Model URL (OpenAI-compatible base URL)",
+        existing.model_url,
+    ).rstrip("/")
+    model_name = _ask_required_text("Model name", existing.model_name)
+    default_output_format = _ask_choice(
+        "Default output format",
+        OUTPUT_FORMATS,
+        existing.default_output_format,
+    )
+    default_implementation_entity = _ask_choice(
+        "Default implementer",
+        IMPLEMENTATION_ENTITIES,
+        existing.default_implementation_entity,
+    )
+    default_render_format = _ask_choice(
+        "Default render format",
+        RENDER_FORMATS,
+        existing.default_render_format,
+    )
+    gherkin_acceptance_criteria = _ask_bool(
+        "Use Gherkin acceptance criteria by default",
+        existing.gherkin_acceptance_criteria,
+    )
+
+    config = AppConfig(
+        api_key=api_key,
+        model_url=model_url,
+        model_name=model_name,
+        default_output_format=default_output_format,
+        default_implementation_entity=default_implementation_entity,
+        default_render_format=default_render_format,
+        gherkin_acceptance_criteria=gherkin_acceptance_criteria,
+    )
+
+    try:
+        write_config(path, config)
+    except ValueError as exc:
+        print(f"Configuration error: {exc}", file=sys.stderr)
+        return 2
+    except OSError as exc:
+        print(f"Could not write config file: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"\nConfiguration written to: {path.resolve()}\n")
+    return 0
+
+
+def _load_config_for_onboarding(path: Path) -> AppConfig:
+    if not path.exists():
+        return AppConfig()
+    try:
+        return load_config_file(path)
+    except (OSError, ValueError) as exc:
+        print(f"Existing config could not be loaded: {exc}", file=sys.stderr)
+        print("Starting from built-in defaults.", file=sys.stderr)
+        return AppConfig()
+
+
+def _ask_api_key(default: str) -> str:
+    if default:
+        label = "API key [current value hidden; press Enter to keep it, type 'clear' to remove it]"
+    else:
+        label = "API key [empty; press Enter to leave empty]"
+    raw = _prompt_secret(label).strip()
+    if not raw:
+        selected = "kept" if default else "empty"
+        print(f"Selected: {selected}")
+        return default
+    if raw.lower() == "clear":
+        print("Selected: empty")
+        return ""
+    print("Selected: new hidden value")
+    return raw
+
+
+def _ask_required_text(label: str, default: str) -> str:
+    while True:
+        value = _prompt(f"{label} [{default}]").strip() or default
+        if value:
+            return value
+        print("Value is required.")
+
+
 def _ask_choice(label: str, choices: tuple[str, ...], default: str) -> str:
     choice_list = ", ".join(choices)
     while True:
@@ -163,11 +272,38 @@ def _ask_choice(label: str, choices: tuple[str, ...], default: str) -> str:
         print(f"Please choose one of: {choice_list}")
 
 
+def _ask_bool(label: str, default: bool) -> bool:
+    default_label = "yes" if default else "no"
+    while True:
+        raw = _prompt(
+            f"{label} [{default_label}] (yes, no)",
+            response_label="Selection",
+        ).strip()
+        if not raw:
+            print(f"Selected: {default_label}")
+            return default
+        normalized = raw.lower()
+        if normalized in {"1", "true", "yes", "y", "on"}:
+            print("Selected: yes")
+            return True
+        if normalized in {"0", "false", "no", "n", "off"}:
+            print("Selected: no")
+            return False
+        print("Please choose yes or no.")
+
+
 def _prompt(label: str, response_label: str = "Answer") -> str:
     print()
     print(label)
     print()
     return input(f"{response_label}: ").strip()
+
+
+def _prompt_secret(label: str) -> str:
+    print()
+    print(label)
+    print()
+    return getpass.getpass("Value: ").strip()
 
 
 def _init_config(path: Path) -> int:

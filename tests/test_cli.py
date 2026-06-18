@@ -9,11 +9,12 @@ from unittest.mock import patch
 from issue_writer_agent.cli import (
     GeneratedSpecification,
     _ask_choice,
+    _configure_config,
     _prompt,
     _write_specification_file,
     run_interview,
 )
-from issue_writer_agent.config import AppConfig
+from issue_writer_agent.config import AppConfig, load_config, write_config
 
 
 class FakeClient:
@@ -105,6 +106,65 @@ class CliTests(unittest.TestCase):
 
         self.assertEqual(choice, "human_team")
         self.assertIn("Selected: human_team\n", stdout.getvalue())
+
+    def test_configure_config_creates_guided_config_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.toml"
+
+            with (
+                patch("issue_writer_agent.cli._prompt_secret", return_value="secret"),
+                patch(
+                    "builtins.input",
+                    side_effect=[
+                        "https://api.x.ai/v1/",
+                        "grok-4.3",
+                        "task",
+                        "human",
+                        "html",
+                        "yes",
+                    ],
+                ),
+                patch("sys.stdout"),
+            ):
+                exit_code = _configure_config(path)
+
+            config = load_config(path)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(config.api_key, "secret")
+        self.assertEqual(config.model_url, "https://api.x.ai/v1")
+        self.assertEqual(config.model_name, "grok-4.3")
+        self.assertEqual(config.default_output_format, "task")
+        self.assertEqual(config.default_implementation_entity, "human_team")
+        self.assertEqual(config.default_render_format, "html")
+        self.assertTrue(config.gherkin_acceptance_criteria)
+
+    def test_configure_config_updates_existing_config_with_defaults(self) -> None:
+        original = AppConfig(
+            api_key="saved-secret",
+            model_url="https://api.x.ai/v1",
+            model_name="grok-4.3",
+            default_output_format="github_issue",
+            default_implementation_entity="ai_agent",
+            default_render_format="markdown",
+            gherkin_acceptance_criteria=False,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.toml"
+            write_config(path, original)
+
+            with (
+                patch("issue_writer_agent.cli._prompt_secret", return_value=""),
+                patch("builtins.input", side_effect=["", "", "", "", "", ""]),
+                patch("sys.stdout", new_callable=StringIO) as stdout,
+            ):
+                exit_code = _configure_config(path)
+
+            config = load_config(path)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(config, original)
+        self.assertNotIn("saved-secret", stdout.getvalue())
 
 
 if __name__ == "__main__":

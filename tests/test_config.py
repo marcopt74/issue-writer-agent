@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from issue_writer_agent.config import load_config, write_default_config
+from issue_writer_agent.config import load_config, load_config_file, write_default_config
 
 
 class ConfigTests(unittest.TestCase):
@@ -46,6 +46,15 @@ class ConfigTests(unittest.TestCase):
                 config = load_config(path)
 
         self.assertEqual(config.model_name, "from-env")
+
+    def test_load_config_file_ignores_environment_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.toml"
+            path.write_text('model_name = "from-file"\n', encoding="utf-8")
+            with patch.dict(os.environ, {"ISSUE_WRITER_MODEL_NAME": "from-env"}):
+                config = load_config_file(path)
+
+        self.assertEqual(config.model_name, "from-file")
 
     def test_rejects_invalid_defaults(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
