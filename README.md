@@ -563,7 +563,7 @@ Answer: Incremental based on a last_updated field
 
 What should run the daily extraction and load?
 
-Answer: CDAF
+Answer: Airflow
 
 What is the target datalake format and cataloging approach?
 
@@ -605,7 +605,7 @@ Ingest ACME vehicle registration data from a JDBC-accessible source database int
 ## Proposed Scope
 
 - Discover the schema for the `registrations` and `model_variant` source tables.
-- Implement a daily CDAF-orchestrated incremental ingestion job.
+- Implement a daily Airflow-orchestrated incremental ingestion job.
 - Use `last_updated` as the incremental cursor where available.
 - Store JDBC credentials and connection parameters in AWS Secrets Manager.
 
