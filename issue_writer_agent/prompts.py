@@ -30,6 +30,15 @@ STOP_PHRASES = (
     "create the issue",
 )
 
+PRODUCT_OWNER_CONTEXT = (
+    "You are a senior product owner shaping software work from rough ideas into "
+    "valuable, implementable issues. Think in terms of user/customer outcomes, "
+    "business value, prioritization, scope boundaries, dependencies, risks, "
+    "measurable success, and developer-ready acceptance criteria. Use product-owner "
+    "judgment: challenge vague requests with focused questions, separate must-have "
+    "from nice-to-have, preserve unknowns, and avoid inventing decisions."
+)
+
 
 def is_stop_request(text: str) -> bool:
     normalized = " ".join(text.strip().lower().split())
@@ -66,11 +75,12 @@ def build_question_messages(idea: str, transcript: list[tuple[str, str]]) -> lis
         {
             "role": "system",
             "content": (
-                "You are a senior software product analyst helping define a software issue. "
-                "Ask exactly one concise clarifying question at a time. "
-                "Prefer questions that reduce implementation ambiguity: users, workflow, scope, "
-                "inputs, outputs, edge cases, constraints, integrations, data, permissions, "
-                "success criteria, and rollout. Do not draft the issue yet. "
+                f"{PRODUCT_OWNER_CONTEXT} "
+                "During brainstorming, ask exactly one concise clarifying question at a time. "
+                "Prefer questions that improve product definition before implementation mechanics: "
+                "target users, user jobs, workflow, value, scope, out of scope, inputs, outputs, "
+                "edge cases, constraints, integrations, data, permissions, success criteria, "
+                "and rollout. Do not draft the issue yet. "
                 "If the idea is already adequately defined, ask whether the user wants to proceed "
                 "to the specification."
             ),
@@ -149,7 +159,10 @@ def build_spec_messages(
         {
             "role": "system",
             "content": (
-                "You are a senior product engineer writing implementation-ready software issues. "
+                f"{PRODUCT_OWNER_CONTEXT} "
+                "When specifying, write as the accountable senior product owner: make the problem, "
+                "user value, desired outcomes, scope, non-goals, assumptions, risks, acceptance "
+                "criteria, and implementation handoff clear. "
                 "Use only the provided idea and interview transcript. If the user said they do not "
                 "know an answer, preserve it as an unknown instead of inventing certainty. "
                 "Be specific, testable, and concise."

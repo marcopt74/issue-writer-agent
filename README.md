@@ -4,6 +4,8 @@ Issue Writer Agent is a terminal-based assistant for turning rough software idea
 
 You start with an unfinished idea, such as "add passwordless login" or "ingest supplier registration data into the datalake". The agent uses an LLM to ask one clarifying question at a time, records your answers, preserves unknowns, then drafts a final specification in the format you choose and writes it to a new file in your configured output folder. If no output folder is configured, it uses your operating system temp directory.
 
+The agent is prompted to act as a senior product owner throughout brainstorming and final specification: it focuses on user outcomes, business value, scope boundaries, prioritization, risks, measurable success, and acceptance criteria before turning the idea into implementation work.
+
 The final output can be tuned for either:
 
 - An AI coding agent that needs explicit implementation guidance.
